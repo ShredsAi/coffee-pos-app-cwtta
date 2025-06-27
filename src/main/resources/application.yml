@@ -1,0 +1,112 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: stock-ledger-management
+  datasource:
+    url: jdbc:postgresql://localhost:5432/inventory_db
+    username: ${DB_USER:inventory_user}
+    password: ${DB_PASSWORD:inventory_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+        connection:
+          provider_disables_autocommit: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+  transaction:
+    default-timeout: 30
+    rollback-on-commit-failure: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      show-components: always
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    ai.shreds: DEBUG
+    org.springframework.transaction: DEBUG
+    org.hibernate.engine.transaction.internal.TransactionImpl: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Transaction configuration
+transaction:
+  default-timeout: 30
+
+# External service URLs
+services:
+  product:
+    base-url: ${PRODUCT_SERVICE_URL:https://product-catalog/api}
+    timeout: 5000
+    retry:
+      max-attempts: 3
+      delay: 1000
+  user:
+    base-url: ${USER_SERVICE_URL:https://users/api}
+    timeout: 5000
+    retry:
+      max-attempts: 3
+      delay: 1000
+  time:
+    base-url: ${TIME_SERVICE_URL:https://time/api}
+    timeout: 3000
+    retry:
+      max-attempts: 2
+      delay: 500
+
+# Application specific configurations
+app:
+  inventory:
+    batch:
+      fifo-enabled: true
+    stock:
+      movement:
+        validation-enabled: true
+    outbox:
+      processing:
+        enabled: true
+        batch-size: 50
+        interval: 5000
+  security:
+    enabled: true
+  async:
+    core-pool-size: 5
+    max-pool-size: 10
+    queue-capacity: 25

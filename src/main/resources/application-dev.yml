@@ -1,0 +1,32 @@
+spring:
+  profiles:
+    active: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5432/inventory_dev_db
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type: TRACE
+    ai.shreds: DEBUG
+    root: INFO
+
+# Development-specific configurations
+debug: true
+
+# External service URLs for development
+services:
+  product:
+    base-url: http://localhost:8081/api
+    timeout: 10000
+  user:
+    base-url: http://localhost:8082/api
+    timeout: 10000
+  time:
+    base-url: http://localhost:8083/api
+    timeout: 5000
