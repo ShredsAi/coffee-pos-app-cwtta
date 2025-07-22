@@ -2,7 +2,7 @@ package ai.shreds.adapter.primary;
 
 import ai.shreds.application.ports.ApplicationStockLedgerInputPort;
 import ai.shreds.shared.dtos.SharedStockLedgerResponseDTO;
-import ai.shreds.shared.value_objects.SharedStockLedgerQueryParams;
+import ai.shreds.shared.dtos.SharedStockLedgerQueryParams;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;

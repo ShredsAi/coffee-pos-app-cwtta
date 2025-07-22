@@ -10,6 +10,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
+import java.util.function.Supplier;
 
 /**
  * Infrastructure adapter for transaction management.
@@ -33,11 +34,11 @@ public class InfrastructureTransactionManagerAdapter implements ApplicationTrans
         if (currentTransaction.get() != null) {
             throw new IllegalStateException("Transaction already in progress");
         }
-        
+
         DefaultTransactionDefinition definition = new DefaultTransactionDefinition();
         definition.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
         definition.setTimeout(defaultTransactionTimeout);
-        
+
         TransactionStatus status = transactionManager.getTransaction(definition);
         currentTransaction.set(status);
         log.debug("Transaction started");
@@ -49,7 +50,7 @@ public class InfrastructureTransactionManagerAdapter implements ApplicationTrans
         if (status == null) {
             throw new IllegalStateException("No active transaction to commit");
         }
-        
+
         transactionManager.commit(status);
         currentTransaction.remove();
         log.debug("Transaction committed");
@@ -61,7 +62,7 @@ public class InfrastructureTransactionManagerAdapter implements ApplicationTrans
         if (status == null) {
             throw new IllegalStateException("No active transaction to rollback");
         }
-        
+
         transactionManager.rollback(status);
         currentTransaction.remove();
         log.debug("Transaction rolled back");
@@ -75,6 +76,18 @@ public class InfrastructureTransactionManagerAdapter implements ApplicationTrans
             } catch (Exception e) {
                 log.error("Transaction operation failed", e);
                 throw e; // Re-throw to trigger rollback
+            }
+        });
+    }
+
+    @Override
+    public <T> T runInTransaction(Supplier<T> operation) {
+        return transactionTemplate.execute(status -> {
+            try {
+                return operation.get();
+            } catch (Exception e) {
+                log.error("Transaction operation failed", e);
+                throw e;
             }
         });
     }

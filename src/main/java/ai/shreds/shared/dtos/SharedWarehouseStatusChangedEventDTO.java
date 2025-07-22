@@ -4,10 +4,10 @@ import java.util.UUID;
 import java.time.LocalDateTime;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 /**
  * Event DTO for warehouse status changes.
@@ -17,6 +17,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@SuperBuilder
 @EqualsAndHashCode(callSuper = true)
 public class SharedWarehouseStatusChangedEventDTO extends SharedEventDTO {
 
@@ -31,27 +32,6 @@ public class SharedWarehouseStatusChangedEventDTO extends SharedEventDTO {
     
     @NotNull(message = "Timestamp must not be null")
     private LocalDateTime timestamp;
-    
-    /**
-     * Builder for creating warehouse status changed events.
-     */
-    @Builder
-    public SharedWarehouseStatusChangedEventDTO(
-            UUID eventId,
-            String eventType,
-            UUID aggregateId,
-            String aggregateType,
-            LocalDateTime occurredAt,
-            UUID warehouseId,
-            Boolean oldStatus,
-            Boolean newStatus,
-            LocalDateTime timestamp) {
-        super(eventId, eventType, aggregateId, aggregateType, occurredAt);
-        this.warehouseId = warehouseId;
-        this.oldStatus = oldStatus;
-        this.newStatus = newStatus;
-        this.timestamp = timestamp;
-    }
     
     /**
      * Creates a warehouse status changed event with default event metadata.

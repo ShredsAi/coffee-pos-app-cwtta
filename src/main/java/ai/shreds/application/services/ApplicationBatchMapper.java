@@ -58,7 +58,8 @@ public interface ApplicationBatchMapper {
         SharedBatchCreatedEventDTO event = new SharedBatchCreatedEventDTO();
         event.setBatchId(batch.getId());
         event.setWarehouseId(batch.getWarehouseId());
-        event.setProductId(batch.getProductId().getValue());
+        // Fix: Convert String to UUID
+        event.setProductId(UUID.fromString(batch.getProductId().getValue()));
         event.setBatchNumber(batch.getBatchNumber());
         event.setQuantity(domainToSharedQuantity(batch.getQuantity()));
         event.setExpirationDate(batch.getExpirationDate());

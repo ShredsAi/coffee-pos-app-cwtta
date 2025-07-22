@@ -28,7 +28,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ApplicationStockMovementService implements ApplicationStockMovementInputPort {
+public class ApplicationStockMovementServiceFixed implements ApplicationStockMovementInputPort {
 
     private final DomainInputPortStockMovement domainStockMovementService;
     private final DomainInputPortInventory domainInventoryService;
@@ -160,6 +160,7 @@ public class ApplicationStockMovementService implements ApplicationStockMovement
         SharedStockLevelsUpdatedEventDTO event = new SharedStockLevelsUpdatedEventDTO();
         event.setInventoryItemId(inventoryItem.getId());
         event.setWarehouseId(inventoryItem.getWarehouseId());
+        // IMPORTANT FIX: Use toUUID() instead of getValue() to explicitly convert from String to UUID
         event.setProductId(inventoryItem.getProductId().toUUID());
         event.setNewQuantities(ApplicationInventoryMapper.toQuantitiesDTO(inventoryItem));
         event.setTimestamp(movement.getPerformedAt());

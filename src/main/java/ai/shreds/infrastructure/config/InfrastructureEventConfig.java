@@ -8,6 +8,7 @@ import org.springframework.context.event.ApplicationEventMulticaster;
 import org.springframework.context.event.SimpleApplicationEventMulticaster;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Configuration for application event handling.
@@ -58,7 +59,8 @@ public class InfrastructureEventConfig {
         executor.setMaxPoolSize(maxPoolSize);
         executor.setQueueCapacity(queueCapacity);
         executor.setThreadNamePrefix("Event-");
-        executor.setRejectedExecutionHandler(new ThreadPoolTaskExecutor.CallerRunsPolicy());
+        // Use ThreadPoolExecutor.CallerRunsPolicy for rejected tasks
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
         executor.initialize();

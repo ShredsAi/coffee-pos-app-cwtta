@@ -17,6 +17,7 @@ import ai.shreds.domain.enums.DomainReservationStatusEnum;
 import ai.shreds.domain.enums.DomainAllocationStatusEnum;
 import ai.shreds.domain.enums.DomainAlertSeverityEnum;
 import ai.shreds.domain.enums.DomainAlertStatusEnum;
+import ai.shreds.domain.enums.DomainReferenceTypeEnum;
 import ai.shreds.infrastructure.repositories.entities.InfrastructureWarehouseJpaEntity;
 import ai.shreds.infrastructure.repositories.entities.InfrastructureInventoryItemJpaEntity;
 import ai.shreds.infrastructure.repositories.entities.InfrastructureStockMovementJpaEntity;
@@ -38,7 +39,7 @@ import java.util.UUID;
  * in the infrastructure boundary.
  */
 @Component
-public class InfrastructureEntityMapper {
+public class InfrastructureEntityMapperFixed {
 
     // ──────────────────────────────────  Warehouse  ────────────────────────────
 
@@ -149,7 +150,7 @@ public class InfrastructureEntityMapper {
         DomainMoneyValue costPerUnit = jpa.getCostPerUnit() != null ? 
                 new DomainMoneyValue(jpa.getCostPerUnit(), jpa.getCostCurrency()) : null;
         
-        // Use raw string for referenceType
+        // Use raw String for referenceType
         String referenceType = jpa.getReferenceType();
         
         return new DomainStockMovementEntity(
@@ -159,7 +160,7 @@ public class InfrastructureEntityMapper {
                 DomainStockMovementTypeEnum.valueOf(jpa.getMovementType()),
                 quantity,
                 jpa.getReferenceId(),
-                referenceType,
+                referenceType, // Pass string directly
                 jpa.getBatchId(),
                 jpa.getReason(),
                 jpa.getPerformedBy(),
@@ -182,7 +183,7 @@ public class InfrastructureEntityMapper {
         entity.setQuantity(domain.getQuantity().getValue());
         entity.setQtyUnit(domain.getQuantity().getUnit());
         entity.setReferenceId(domain.getReferenceId());
-        entity.setReferenceType(domain.getReferenceType());
+        entity.setReferenceType(domain.getReferenceType()); // Get string directly
         entity.setBatchId(domain.getBatchId());
         entity.setReason(domain.getReason());
         entity.setPerformedBy(domain.getPerformedBy());

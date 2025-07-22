@@ -33,18 +33,18 @@ public class ApplicationOutboxService {
     }
 
     public void saveEvent(String eventType, java.util.UUID aggregateId, String aggregateType, Object payload) {
-        DomainEventOutboxEntity event = new DomainEventOutboxEntity();
-        event.setAggregateId(aggregateId);
-        event.setAggregateType(aggregateType);
-        event.setEventType(eventType);
         try {
-            event.setPayload(objectMapper.writeValueAsString(payload));
+            String payloadJson = objectMapper.writeValueAsString(payload);
+            DomainEventOutboxEntity event = DomainEventOutboxEntity.createNew(
+                aggregateId,
+                aggregateType,
+                eventType,
+                payloadJson
+            );
+            outboxRepository.save(event);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Failed to serialize event payload", e);
         }
-        event.setCreatedAt(LocalDateTime.now());
-        event.setProcessed(false);
-        outboxRepository.save(event);
     }
 
     public void processUnpublishedEvents() {

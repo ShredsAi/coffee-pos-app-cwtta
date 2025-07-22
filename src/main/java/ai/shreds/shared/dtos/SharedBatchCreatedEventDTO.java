@@ -7,10 +7,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 import ai.shreds.shared.value_objects.SharedQuantityValue;
 
 /**
@@ -21,6 +21,7 @@ import ai.shreds.shared.value_objects.SharedQuantityValue;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@SuperBuilder
 @EqualsAndHashCode(callSuper = true)
 public class SharedBatchCreatedEventDTO extends SharedEventDTO {
 
@@ -47,35 +48,6 @@ public class SharedBatchCreatedEventDTO extends SharedEventDTO {
     
     @NotNull(message = "Timestamp must not be null")
     private LocalDateTime timestamp;
-    
-    /**
-     * Builder for creating batch created events.
-     */
-    @Builder
-    public SharedBatchCreatedEventDTO(
-            UUID eventId,
-            String eventType,
-            UUID aggregateId,
-            String aggregateType,
-            LocalDateTime occurredAt,
-            UUID batchId,
-            UUID warehouseId,
-            UUID productId,
-            String batchNumber,
-            SharedQuantityValue quantity,
-            LocalDate expirationDate,
-            Integer fifoOrder,
-            LocalDateTime timestamp) {
-        super(eventId, eventType, aggregateId, aggregateType, occurredAt);
-        this.batchId = batchId;
-        this.warehouseId = warehouseId;
-        this.productId = productId;
-        this.batchNumber = batchNumber;
-        this.quantity = quantity;
-        this.expirationDate = expirationDate;
-        this.fifoOrder = fifoOrder;
-        this.timestamp = timestamp;
-    }
     
     /**
      * Creates a batch created event with default event metadata.
