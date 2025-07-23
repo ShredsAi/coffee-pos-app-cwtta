@@ -279,6 +279,209 @@ class StockMovementProcessingIntegrationTest {
         System.out.println("\n=== INBOUND MOVEMENT INTEGRATION TEST COMPLETED SUCCESSFULLY ===");
     }
 
+    /**
+     * Test: When_OUTBOUND_Movement_Is_Created_Then_FIFO_Batch_Is_Consumed_And_Inventory_Updated
+     * 
+     * Tests that an OUTBOUND movement consumes from oldest batch (FIFO), updates inventory quantities,
+     * and publishes appropriate events.
+     */
+    @Test
+    void When_OUTBOUND_Movement_Is_Created_Then_FIFO_Batch_Is_Consumed_And_Inventory_Updated(CapturedOutput output) {
+        System.out.println("\n=== STARTING OUTBOUND MOVEMENT INTEGRATION TEST ===");
+
+        // Setup: Create initial inventory with multiple batches for FIFO testing
+        LocalDateTime now = LocalDateTime.now();
+        UUID batch1Id = UUID.randomUUID();
+        UUID batch2Id = UUID.randomUUID();
+        String batch1Number = "BATCH-OLD-" + System.currentTimeMillis();
+        String batch2Number = "BATCH-NEW-" + (System.currentTimeMillis() + 1000);
+
+        // Create initial inventory item
+        InfrastructureInventoryItemJpaEntity initialInventory = new InfrastructureInventoryItemJpaEntity();
+        initialInventory.setId(UUID.randomUUID());
+        initialInventory.setWarehouseId(testWarehouseId);
+        initialInventory.setProductId(testProductId.toString());
+        initialInventory.setTotalQty(new BigDecimal("200.0"));
+        initialInventory.setAvailableQty(new BigDecimal("200.0"));
+        initialInventory.setReservedQty(new BigDecimal("0.0"));
+        initialInventory.setAllocatedQty(new BigDecimal("0.0"));
+        initialInventory.setQtyUnit("pieces");
+        initialInventory.setSafetyStockLevel(new BigDecimal("50.0"));
+        initialInventory.setReorderPoint(new BigDecimal("100.0"));
+        initialInventory.setLastMovementAt(now.minusHours(2));
+        initialInventory.setVersion(1L);
+        inventoryItemRepository.save(initialInventory);
+
+        // Create first batch (older - should be consumed first in FIFO)
+        InfrastructureBatchJpaEntity batch1 = new InfrastructureBatchJpaEntity();
+        batch1.setId(batch1Id);
+        batch1.setWarehouseId(testWarehouseId);
+        batch1.setProductId(testProductId.toString());
+        batch1.setBatchNumber(batch1Number);
+        batch1.setQuantity(new BigDecimal("80.0"));
+        batch1.setQtyUnit("pieces");
+        batch1.setManufacturingDate(LocalDate.now().minusDays(10));
+        batch1.setExpirationDate(LocalDate.now().plusDays(90));
+        batch1.setReceivedAt(now.minusHours(2)); // Older batch
+        batch1.setSupplierId(UUID.randomUUID());
+        batch1.setVersion(1L);
+        batchRepository.save(batch1);
+
+        // Create second batch (newer - should remain untouched)
+        InfrastructureBatchJpaEntity batch2 = new InfrastructureBatchJpaEntity();
+        batch2.setId(batch2Id);
+        batch2.setWarehouseId(testWarehouseId);
+        batch2.setProductId(testProductId.toString());
+        batch2.setBatchNumber(batch2Number);
+        batch2.setQuantity(new BigDecimal("120.0"));
+        batch2.setQtyUnit("pieces");
+        batch2.setManufacturingDate(LocalDate.now().minusDays(5));
+        batch2.setExpirationDate(LocalDate.now().plusDays(95));
+        batch2.setReceivedAt(now.minusHours(1)); // Newer batch
+        batch2.setSupplierId(UUID.randomUUID());
+        batch2.setVersion(1L);
+        batchRepository.save(batch2);
+
+        System.out.println("Initial setup completed:");
+        System.out.println("- Inventory total: 200 pieces");
+        System.out.println("- Batch 1 (older): " + batch1Number + " with 80 pieces - received at: " + batch1.getReceivedAt());
+        System.out.println("- Batch 2 (newer): " + batch2Number + " with 120 pieces - received at: " + batch2.getReceivedAt());
+
+        // Create outbound stock movement request (consuming 50 pieces)
+        SharedStockMovementRequestDTO outboundRequest = SharedStockMovementRequestDTO.builder()
+                .warehouseId(testWarehouseId)
+                .productId(testProductId)
+                .movementType(SharedStockMovementTypeEnum.OUTBOUND)
+                .quantity(SharedQuantityValue.builder()
+                        .value(new BigDecimal("50.0"))
+                        .unit("pieces")
+                        .build())
+                .referenceId("SO-67890")
+                .referenceType(SharedReferenceTypeEnum.SALES_ORDER)
+                .reason("Customer order fulfillment")
+                .performedBy("warehouse-operator-456")
+                .costPerUnit(SharedMoneyValue.builder()
+                        .amount(new BigDecimal("12.00"))
+                        .currency("USD")
+                        .build())
+                .build();
+
+        // Create HTTP headers
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<SharedStockMovementRequestDTO> request = new HttpEntity<>(outboundRequest, headers);
+
+        // Act: Send POST request to create outbound stock movement
+        System.out.println("\nSending POST request to /api/stock-movements for OUTBOUND movement");
+        ResponseEntity<SharedStockMovementResponseDTO> response = restTemplate.postForEntity(
+                "/api/stock-movements",
+                request,
+                SharedStockMovementResponseDTO.class
+        );
+
+        System.out.println("Response Status: " + response.getStatusCode());
+        System.out.println("Response Body: " + response.getBody());
+
+        // Assert: Verify HTTP response
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(response.getBody()).isNotNull();
+
+        SharedStockMovementResponseDTO responseBody = response.getBody();
+        assertThat(responseBody.getMovementId()).isNotNull();
+        assertThat(responseBody.getWarehouseId()).isEqualTo(testWarehouseId);
+        assertThat(responseBody.getProductId()).isEqualTo(testProductId);
+        assertThat(responseBody.getMovementType()).isEqualTo(SharedStockMovementTypeEnum.OUTBOUND);
+        assertThat(responseBody.getQuantity().getValue()).isEqualByComparingTo(new BigDecimal("50.0"));
+        assertThat(responseBody.getQuantity().getUnit()).isEqualTo("pieces");
+
+        System.out.println("=== HTTP RESPONSE VERIFICATION PASSED ===");
+
+        // Assert: Verify stock movement is persisted in database
+        List<InfrastructureStockMovementJpaEntity> movements = stockMovementRepository.findAll();
+        InfrastructureStockMovementJpaEntity savedOutboundMovement = movements.stream()
+                .filter(m -> m.getWarehouseId().equals(testWarehouseId) && 
+                           m.getProductId().equals(testProductId.toString()) &&
+                           "OUTBOUND".equals(m.getMovementType()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Outbound stock movement not found in database"));
+
+        assertThat(savedOutboundMovement.getMovementType()).isEqualTo("OUTBOUND");
+        assertThat(savedOutboundMovement.getQuantity()).isEqualByComparingTo(new BigDecimal("50.0"));
+        assertThat(savedOutboundMovement.getQtyUnit()).isEqualTo("pieces");
+        assertThat(savedOutboundMovement.getReferenceId()).isEqualTo("SO-67890");
+        assertThat(savedOutboundMovement.getPerformedBy()).isEqualTo("warehouse-operator-456");
+        assertThat(savedOutboundMovement.getBatchId()).isEqualTo(batch1Id); // Should reference the older batch
+
+        System.out.println("=== OUTBOUND STOCK MOVEMENT PERSISTENCE VERIFICATION PASSED ===");
+
+        // Assert: Verify FIFO batch consumption
+        Optional<InfrastructureBatchJpaEntity> updatedBatch1 = batchRepository.findById(batch1Id);
+        Optional<InfrastructureBatchJpaEntity> updatedBatch2 = batchRepository.findById(batch2Id);
+
+        assertThat(updatedBatch1).isPresent();
+        assertThat(updatedBatch2).isPresent();
+
+        // Older batch should be consumed first (FIFO)
+        assertThat(updatedBatch1.get().getQuantity()).isEqualByComparingTo(new BigDecimal("30.0")); // 80 - 50 = 30
+        // Newer batch should remain unchanged
+        assertThat(updatedBatch2.get().getQuantity()).isEqualByComparingTo(new BigDecimal("120.0")); // unchanged
+
+        System.out.println("=== FIFO BATCH CONSUMPTION VERIFICATION PASSED ===");
+        System.out.println("Batch 1 (older) remaining quantity: " + updatedBatch1.get().getQuantity());
+        System.out.println("Batch 2 (newer) remaining quantity: " + updatedBatch2.get().getQuantity());
+
+        // Assert: Verify inventory item is updated correctly
+        Optional<InfrastructureInventoryItemJpaEntity> updatedInventory = inventoryItemRepository.findById(initialInventory.getId());
+        assertThat(updatedInventory).isPresent();
+
+        InfrastructureInventoryItemJpaEntity updatedInventoryItem = updatedInventory.get();
+        assertThat(updatedInventoryItem.getTotalQty()).isEqualByComparingTo(new BigDecimal("150.0")); // 200 - 50 = 150
+        assertThat(updatedInventoryItem.getAvailableQty()).isEqualByComparingTo(new BigDecimal("150.0")); // 200 - 50 = 150
+        assertThat(updatedInventoryItem.getQtyUnit()).isEqualTo("pieces");
+        assertThat(updatedInventoryItem.getLastMovementAt()).isAfter(initialInventory.getLastMovementAt());
+
+        System.out.println("=== INVENTORY ITEM UPDATE VERIFICATION PASSED ===");
+        System.out.println("Updated inventory total quantity: " + updatedInventoryItem.getTotalQty());
+        System.out.println("Updated inventory available quantity: " + updatedInventoryItem.getAvailableQty());
+
+        // Assert: Verify events are published to outbox
+        List<InfrastructureEventOutboxJpaEntity> outboxEvents = eventOutboxRepository.findAll();
+        assertThat(outboxEvents).isNotEmpty();
+        
+        // Check for StockMovementCreated event
+        boolean stockMovementEventFound = outboxEvents.stream()
+                .anyMatch(event -> "StockMovementCreated".equals(event.getEventType()) &&
+                                 "StockMovement".equals(event.getAggregateType()) &&
+                                 savedOutboundMovement.getId().equals(event.getAggregateId()));
+        assertThat(stockMovementEventFound).isTrue();
+
+        // Check for StockLevelsUpdated event
+        boolean stockLevelsUpdatedEventFound = outboxEvents.stream()
+                .anyMatch(event -> "StockLevelsUpdated".equals(event.getEventType()) &&
+                                 "InventoryItem".equals(event.getAggregateType()) &&
+                                 updatedInventoryItem.getId().equals(event.getAggregateId()));
+        assertThat(stockLevelsUpdatedEventFound).isTrue();
+        
+        System.out.println("=== EVENT PUBLISHING VERIFICATION PASSED ===");
+        System.out.println("Found " + outboxEvents.size() + " events in outbox");
+        outboxEvents.forEach(event -> {
+            System.out.println("Event: " + event.getEventType() + ", Aggregate: " + event.getAggregateType() + ", ID: " + event.getAggregateId());
+        });
+
+        // Assert: Analyze logs for successful processing
+        String logs = output.getOut();
+        assertThat(logs).contains("Processing stock movement");
+        assertThat(logs).contains("OUTBOUND");
+        assertThat(logs).contains("Successfully processed stock movement");
+        assertThat(logs).doesNotContain("ERROR");
+        assertThat(logs).doesNotContain("InsufficientStockException");
+
+        System.out.println("=== LOG ANALYSIS VERIFICATION PASSED ===");
+        System.out.println("\n=== FULL OUTBOUND INTEGRATION TEST LOGS ===");
+        System.out.println(logs);
+        System.out.println("\n=== OUTBOUND MOVEMENT INTEGRATION TEST COMPLETED SUCCESSFULLY ===");
+    }
+
     private void setupExternalServiceMocks() {
         // Mock Product Service
         Map<String, Object> productDetails = new HashMap<>();
