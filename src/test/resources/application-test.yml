@@ -1,0 +1,123 @@
+# Test configuration for Stock Ledger Management System
+spring:
+  application:
+    name: stock-ledger-management-test
+  
+  # Database configuration will be overridden by TestContainers
+  datasource:
+    url: jdbc:postgresql://localhost:5432/test_db
+    username: test_user
+    password: test_pass
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  
+  jpa:
+    hibernate:
+      ddl-auto: create-drop  # Recreate schema for each test
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+        connection:
+          provider_disables_autocommit: true
+  
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+  
+  transaction:
+    default-timeout: 30
+    rollback-on-commit-failure: true
+
+# Override server port for tests  
+server:
+  port: 0  # Use random available port
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+
+# Logging configuration for tests
+logging:
+  level:
+    root: INFO
+    ai.shreds: DEBUG
+    org.springframework.transaction: DEBUG
+    org.hibernate.engine.transaction.internal.TransactionImpl: DEBUG
+    org.springframework.web: DEBUG
+    org.testcontainers: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Transaction configuration
+transaction:
+  default-timeout: 30
+
+# External service URLs - will be mocked in tests
+services:
+  product:
+    base-url: http://localhost:8080/mock-product-service
+    timeout: 5000
+    retry:
+      max-attempts: 3
+      delay: 1000
+  user:
+    base-url: http://localhost:8080/mock-user-service
+    timeout: 5000
+    retry:
+      max-attempts: 3
+      delay: 1000
+  time:
+    base-url: http://localhost:8080/mock-time-service
+    timeout: 3000
+    retry:
+      max-attempts: 2
+      delay: 500
+
+# Application specific configurations for testing
+app:
+  inventory:
+    batch:
+      fifo-enabled: true
+    stock:
+      movement:
+        validation-enabled: true
+    outbox:
+      processing:
+        enabled: true
+        batch-size: 50
+        interval: 5000
+  security:
+    enabled: false  # Disable security for tests
+  async:
+    core-pool-size: 2
+    max-pool-size: 5
+    queue-capacity: 25

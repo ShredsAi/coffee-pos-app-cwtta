@@ -1,0 +1,48 @@
+spring:
+  profiles:
+    active: prod
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 25
+      minimum-idle: 10
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    root: WARN
+    ai.shreds: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# Security configurations
+security:
+  require-ssl: true
+
+# Production external service URLs
+services:
+  product:
+    base-url: ${PRODUCT_SERVICE_URL:https://product-catalog/api}
+    timeout: 5000
+  user:
+    base-url: ${USER_SERVICE_URL:https://users/api}
+    timeout: 5000
+  time:
+    base-url: ${TIME_SERVICE_URL:https://time/api}
+    timeout: 3000
