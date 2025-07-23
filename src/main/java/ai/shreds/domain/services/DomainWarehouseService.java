@@ -8,6 +8,7 @@ import ai.shreds.domain.exceptions.DomainWarehouseInactiveException;
 import ai.shreds.domain.ports.DomainInputPortWarehouse;
 import ai.shreds.domain.ports.DomainOutputPortWarehouseRepository;
 import ai.shreds.domain.value_objects.DomainAddressValue;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -16,6 +17,7 @@ import java.util.UUID;
  * Domain service implementing warehouse business logic.
  * Handles warehouse creation, status management, and validation.
  */
+@Service
 public class DomainWarehouseService implements DomainInputPortWarehouse {
     
     private final DomainOutputPortWarehouseRepository warehouseRepository;

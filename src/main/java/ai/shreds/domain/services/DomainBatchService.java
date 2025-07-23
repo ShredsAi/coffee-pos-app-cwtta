@@ -9,6 +9,7 @@ import ai.shreds.domain.ports.DomainInputPortBatch;
 import ai.shreds.domain.ports.DomainOutputPortBatchRepository;
 import ai.shreds.domain.value_objects.DomainProductIdValue;
 import ai.shreds.domain.value_objects.DomainQuantityValue;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
  * Domain service implementing batch business logic.
  * Handles batch creation, FIFO allocation, and batch management operations.
  */
+@Service
 public class DomainBatchService implements DomainInputPortBatch {
     
     private final DomainOutputPortBatchRepository batchRepository;

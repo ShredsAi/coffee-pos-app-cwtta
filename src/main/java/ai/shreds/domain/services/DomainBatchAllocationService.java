@@ -6,6 +6,7 @@ import ai.shreds.domain.exceptions.DomainValidationException;
 import ai.shreds.domain.ports.DomainOutputPortBatchRepository;
 import ai.shreds.domain.value_objects.DomainProductIdValue;
 import ai.shreds.domain.value_objects.DomainQuantityValue;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.UUID;
  * Domain service for batch allocation using FIFO (First In, First Out) algorithm.
  * Handles complex batch allocation logic for outbound movements.
  */
+@Service
 public class DomainBatchAllocationService {
     
     private final DomainOutputPortBatchRepository batchRepository;
