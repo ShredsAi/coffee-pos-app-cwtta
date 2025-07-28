@@ -1,0 +1,876 @@
+openapi: 3.0.3
+info:
+  title: Product Catalog Management API
+  version: 1.0.0
+  description: |
+    REST API for Product Catalog Management Shred
+    
+    This API provides comprehensive functionality for managing products, categories, 
+    attributes, and media files in the product catalog system.
+    
+    ## Features
+    - Complete CRUD operations for products, categories, and attributes
+    - Hierarchical category management
+    - Dynamic attribute system with EAV (Entity-Attribute-Value) model
+    - Media file management with multiple formats support
+    - Advanced filtering, searching, and pagination
+    - Audit trail and event publishing
+    
+  contact:
+    name: Product Catalog Team
+    email: product-catalog@aiservices.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api
+    description: Development server
+  - url: https://api.productcatalog.aiservices.com/api
+    description: Production server
+
+tags:
+  - name: Products
+    description: Product management operations
+  - name: Categories
+    description: Category management and hierarchy
+  - name: Attributes
+    description: Product attribute definitions
+  - name: Media
+    description: Media file management
+
+paths:
+  /products:
+    post:
+      tags:
+        - Products
+      summary: Create a new product
+      description: Creates a new product with all associated data including attributes, categories, and media
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreateRequest'
+      responses:
+        '201':
+          description: Product created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDTO'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Product already exists (duplicate SKU/slug)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Products
+      summary: List products with filtering and pagination
+      description: Retrieves a paginated list of products with optional filtering by category, brand, status, and search
+      operationId: listProducts
+      parameters:
+        - name: page
+          in: query
+          description: Page number (0-based)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: size
+          in: query
+          description: Number of items per page
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: sort
+          in: query
+          description: Sort criteria (field,direction)
+          schema:
+            type: string
+            default: name,asc
+        - name: categoryId
+          in: query
+          description: Filter by category ID
+          schema:
+            type: string
+            format: uuid
+        - name: brand
+          in: query
+          description: Filter by brand
+          schema:
+            type: string
+        - name: publicationStatus
+          in: query
+          description: Filter by publication status
+          schema:
+            $ref: '#/components/schemas/PublicationStatus'
+        - name: search
+          in: query
+          description: Full-text search in name and description
+          schema:
+            type: string
+        - name: isActive
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Products retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedProductResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /products/{id}:
+    get:
+      tags:
+        - Products
+      summary: Get product by ID
+      description: Retrieves a single product with all related data
+      operationId: getProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Product ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Product retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDTO'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Products
+      summary: Update product
+      description: Updates an existing product with optimistic locking
+      operationId: updateProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Product ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdateRequest'
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductDTO'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Version conflict or duplicate data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Products
+      summary: Delete product
+      description: Deletes a product and all associated data
+      operationId: deleteProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Product ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Product deleted successfully
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /categories:
+    post:
+      tags:
+        - Categories
+      summary: Create a new category
+      description: Creates a new category with automatic hierarchy calculation
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryCreateRequest'
+      responses:
+        '201':
+          description: Category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDTO'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags:
+        - Categories
+      summary: List categories
+      description: Retrieves categories with hierarchy and filtering
+      operationId: listCategories
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: parentCategoryId
+          in: query
+          description: Filter by parent category
+          schema:
+            type: string
+            format: uuid
+        - name: level
+          in: query
+          description: Filter by hierarchy level
+          schema:
+            type: integer
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedCategoryResponse'
+
+  /attributes:
+    post:
+      tags:
+        - Attributes
+      summary: Create a new attribute
+      description: Creates a new product attribute definition
+      operationId: createAttribute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttributeCreateRequest'
+      responses:
+        '201':
+          description: Attribute created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductAttributeDTO'
+    get:
+      tags:
+        - Attributes
+      summary: List attributes
+      description: Retrieves attribute definitions with filtering
+      operationId: listAttributes
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: attributeType
+          in: query
+          schema:
+            $ref: '#/components/schemas/AttributeType'
+        - name: isFilterable
+          in: query
+          schema:
+            type: boolean
+        - name: isSearchable
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Attributes retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedAttributeResponse'
+
+  /products/{productId}/media:
+    post:
+      tags:
+        - Media
+      summary: Upload media file
+      description: Uploads a media file for a product
+      operationId: uploadMedia
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Media file to upload
+                altText:
+                  type: string
+                  description: Alternative text for accessibility
+                title:
+                  type: string
+                  description: Media title
+                isPrimary:
+                  type: boolean
+                  default: false
+                  description: Whether this is the primary media
+                sortOrder:
+                  type: integer
+                  default: 0
+                  description: Display order
+              required:
+                - file
+      responses:
+        '201':
+          description: Media uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductMediaDTO'
+        '400':
+          description: Invalid file or request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: Unsupported media type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ProductDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        shortDescription:
+          type: string
+        brand:
+          type: string
+        model:
+          type: string
+        sku:
+          type: string
+        slug:
+          type: string
+        publicationStatus:
+          $ref: '#/components/schemas/PublicationStatus'
+        isActive:
+          type: boolean
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductAttributeValueDTO'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryDTO'
+        primaryCategoryId:
+          type: string
+          format: uuid
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductMediaDTO'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+    ProductCreateRequest:
+      type: object
+      required:
+        - name
+        - sku
+        - slug
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        shortDescription:
+          type: string
+          maxLength: 500
+        brand:
+          type: string
+        model:
+          type: string
+        sku:
+          type: string
+          pattern: '^[A-Z0-9-]+$'
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+        publicationStatus:
+          $ref: '#/components/schemas/PublicationStatus'
+        categoryIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        primaryCategoryId:
+          type: string
+          format: uuid
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributeValueRequest'
+
+    ProductUpdateRequest:
+      allOf:
+        - $ref: '#/components/schemas/ProductCreateRequest'
+        - type: object
+          required:
+            - version
+          properties:
+            isActive:
+              type: boolean
+            version:
+              type: integer
+              format: int64
+
+    CategoryDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        slug:
+          type: string
+        parentCategoryId:
+          type: string
+          format: uuid
+        level:
+          type: integer
+        path:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+    CategoryCreateRequest:
+      type: object
+      required:
+        - name
+        - slug
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        slug:
+          type: string
+        parentCategoryId:
+          type: string
+          format: uuid
+        sortOrder:
+          type: integer
+          default: 0
+
+    ProductAttributeDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        attributeType:
+          $ref: '#/components/schemas/AttributeType'
+        isRequired:
+          type: boolean
+        isFilterable:
+          type: boolean
+        isSearchable:
+          type: boolean
+        unit:
+          type: string
+        sortOrder:
+          type: integer
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributeOptionDTO'
+        isActive:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+
+    AttributeCreateRequest:
+      type: object
+      required:
+        - name
+        - code
+        - attributeType
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+          pattern: '^[A-Z_0-9]+$'
+        description:
+          type: string
+        attributeType:
+          $ref: '#/components/schemas/AttributeType'
+        isRequired:
+          type: boolean
+          default: false
+        isFilterable:
+          type: boolean
+          default: false
+        isSearchable:
+          type: boolean
+          default: false
+        unit:
+          type: string
+        sortOrder:
+          type: integer
+          default: 0
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributeOptionRequest'
+
+    AttributeOptionDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        value:
+          type: string
+        code:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    AttributeOptionRequest:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          type: string
+        code:
+          type: string
+        sortOrder:
+          type: integer
+          default: 0
+
+    ProductAttributeValueDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        attributeId:
+          type: string
+          format: uuid
+        attribute:
+          $ref: '#/components/schemas/ProductAttributeDTO'
+        textValue:
+          type: string
+        numericValue:
+          type: number
+        booleanValue:
+          type: boolean
+        dateValue:
+          type: string
+          format: date
+        selectedOptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributeOptionDTO'
+
+    AttributeValueRequest:
+      type: object
+      required:
+        - attributeId
+      properties:
+        attributeId:
+          type: string
+          format: uuid
+        textValue:
+          type: string
+        numericValue:
+          type: number
+        booleanValue:
+          type: boolean
+        dateValue:
+          type: string
+          format: date
+        selectedOptionIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    ProductMediaDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        url:
+          type: string
+        mediaType:
+          $ref: '#/components/schemas/MediaType'
+        mimeType:
+          type: string
+        altText:
+          type: string
+        title:
+          type: string
+        sortOrder:
+          type: integer
+        width:
+          type: integer
+        height:
+          type: integer
+        fileSize:
+          type: integer
+          format: int64
+        isPrimary:
+          type: boolean
+        uploadedAt:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          format: int64
+
+    PagedProductResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductDTO'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+
+    PagedCategoryResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryDTO'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+
+    PagedAttributeResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductAttributeDTO'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+        hasNext:
+          type: boolean
+        hasPrevious:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        validationErrors:
+          type: object
+          additionalProperties:
+            type: string
+
+    PublicationStatus:
+      type: string
+      enum:
+        - DRAFT
+        - REVIEW
+        - PUBLISHED
+        - ARCHIVED
+
+    AttributeType:
+      type: string
+      enum:
+        - TEXT
+        - NUMBER
+        - BOOLEAN
+        - DATE
+        - SELECT_SINGLE
+        - SELECT_MULTIPLE
+
+    MediaType:
+      type: string
+      enum:
+        - IMAGE
+        - VIDEO
+        - DOCUMENT
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
